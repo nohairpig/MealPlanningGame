@@ -23,10 +23,14 @@
               <div class="compartment" data-slot="4"><div class="slot-body" id="slotBody4"></div></div>
             </div>
           </div>
-
-          <div class="trash" id="trash" aria-label="垃圾桶（拖曳到此刪除）">
-            <img id="trashImg" src="pic/bin_close.png" alt="垃圾桶" draggable="false">
-            <div class="trash-hint">拖到這裡刪除</div>
+          <div class="trashring">
+            <div class="ring">
+              <img src="pic/ring.png" alt="出餐鈴" draggable="false"> 
+            </div>
+            <div class="trash" id="trash" aria-label="垃圾桶（拖曳到此刪除）">
+              <img id="trashImg" src="pic/bin_close.png" alt="垃圾桶" draggable="false">
+              <div class="trash-hint">拖到這裡刪除</div>
+            </div>
           </div>
         </div>
       </section>
@@ -55,9 +59,6 @@
             <div class="status" id="status">已選 0 份（共 0 種）</div>
 
             <button class="btn secondary" id="clearAll" type="button">清空整個餐盤</button>
-
-            <!-- ✅ 新增：送出計算 -->
-            <button class="btn" id="submitPlate" type="button">送出餐盤</button>
 
             <!-- ✅ 新增：結果顯示 -->
             <div class="status" id="scoreBox" style="display:none;">
@@ -301,23 +302,31 @@
     return acc;
   }, {});
 
-  // ✅ DOM：送出按鈕與分數顯示區
-  const submitPlateBtn = document.getElementById("submitPlate");
+  // ✅ DOM：出餐鈴 + 分數顯示區
+  const ringBtn = document.querySelector(".ring"); // 或 document.querySelector(".ring img")
   const scoreBox = document.getElementById("scoreBox");
   const scoreValueEl = document.getElementById("scoreValue");
   const scoreHintEl = document.getElementById("scoreHint");
 
-  // ✅ 綁定「送出餐盤」點擊事件（你現在缺這段）
-  submitPlateBtn.addEventListener("click", () => {
+  function showPlateScore(){
     const result = calculatePlateScore();
 
     scoreValueEl.textContent = String(result.score);
     scoreHintEl.textContent = result.hint || "";
     scoreBox.style.display = "inline-block";
+  }
 
-    // 若你想在 console 看詳細數據（方便調參），可打開這行
-    // console.log(result);
+  // ✅ 點鈴鐺 = 原本送出餐盤
+  ringBtn.addEventListener("click", showPlateScore);
+
+  // ✅ 鍵盤可操作（可選，但建議）
+  ringBtn.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      showPlateScore();
+    }
   });
+
 
 
   function renderSlots(){
