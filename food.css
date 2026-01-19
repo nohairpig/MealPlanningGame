@@ -637,3 +637,47 @@
   body.modal-open{
     overflow: hidden;
   }
+
+  /* ✅ 直向提示遮罩 */
+  .rotate-overlay{
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0,0,0,.55);
+    z-index: 99999;
+  }
+
+  .rotate-overlay.is-open{ display: flex; }
+
+  .rotate-card{
+    width: min(420px, 92vw);
+    background: #fff;
+    border-radius: 18px;
+    padding: 18px 16px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.25);
+    text-align: center;
+  }
+
+  .rotate-title{
+    font-weight: 800;
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+
+  .rotate-text{
+    font-size: 14px;
+    line-height: 1.5;
+    opacity: .9;
+  }
+
+  /* ✅ 鎖住遊戲操作時的效果（可選） */
+  #game.is-locked{
+    pointer-events: none;
+    user-select: none;
+    filter: blur(1px);
+  }
+
+  /* 遮罩開啟時，仍允許遮罩可以點（所以 overlay 不能被 pointer-events: none） */

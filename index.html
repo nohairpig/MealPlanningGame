@@ -9,8 +9,14 @@
 </head>
 <body>
   <div class="stage" id="stage">
+    <!-- ✅ 直向提示遮罩 -->
+    <div class="rotate-overlay" id="rotateOverlay" aria-hidden="true">
+      <div class="rotate-card" role="dialog" aria-modal="true" aria-label="建議橫向遊玩">
+        <div class="rotate-title">建議將手機放橫</div>
+        <div class="rotate-text">為了最佳操作體驗，請將手機旋轉為橫向後再開始遊玩。</div>
+      </div>
+    </div>
     <div class="page" id="game">
-
       <!-- TRAY + TRASH -->
       <section class="tray-area">
         <div class="tray-wrap">
@@ -932,6 +938,54 @@
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
     }
+  }
+
+  // ===============================
+  // ✅ 直向提示 + 橫向才可玩
+  // ===============================
+  const rotateOverlay = document.getElementById("rotateOverlay");
+
+  function isPortrait(){
+    // 用 visualViewport 更準（iOS 網址列伸縮）
+    const w = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    return h > w;
+  }
+
+  function applyOrientationGate(){
+    const touch = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+    if (!touch) {
+      // 非手機/平板：不強制
+      rotateOverlay?.classList.remove("is-open");
+      gameEl.classList.remove("is-locked");
+      rotateOverlay?.setAttribute("aria-hidden","true");
+      return;
+    }
+
+    if (isPortrait()){
+      rotateOverlay?.classList.add("is-open");
+      rotateOverlay?.setAttribute("aria-hidden","false");
+      gameEl.classList.add("is-locked");
+    } else {
+      rotateOverlay?.classList.remove("is-open");
+      rotateOverlay?.setAttribute("aria-hidden","true");
+      gameEl.classList.remove("is-locked");
+    }
+
+    // 橫直切換後，重新 fit（你原本的 function）
+    fitGameToScreen();
+    applyAutoItemSize();
+  }
+
+  // 初次
+  applyOrientationGate();
+
+  // 監聽：旋轉、視窗變動
+  window.addEventListener("resize", applyOrientationGate);
+  window.addEventListener("orientationchange", applyOrientationGate);
+  if (window.visualViewport){
+    window.visualViewport.addEventListener("resize", applyOrientationGate);
+    window.visualViewport.addEventListener("scroll", applyOrientationGate);
   }
 
 </script>
