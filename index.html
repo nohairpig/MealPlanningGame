@@ -414,24 +414,22 @@
     document.body.classList.remove("modal-open");
   }
 
+  /* ===========================
+  * ✅ 同步修正：showPlateScore() 裡的預設分數
+  * 原本用 || 1 會把 0 分吃掉
+  * =========================== */
   function showPlateScore(){
-    // ✅ 1) 先存送出前快照（按再玩一次要還原）
     snapshotSlots = deepCopy(slots);
     snapshotPortions = deepCopy(portions);
 
-    // ✅ 2) 計算分數
     const result = calculatePlateScore();
-    const score = Number(result.score) || 1;
+    const score = Number.isFinite(Number(result.score)) ? Number(result.score) : 0;
 
-    // ✅ 3) 填入 modal
     modalScoreValue.textContent = String(score);
     modalScoreHint.textContent = result.hint || "";
-    renderStars(score);
+    renderStars(score); // score 可為 0：會顯示 0 顆星（全灰）
 
-    // ✅ 4) 打開遮罩
     openModal();
-
-    // （可選）原本 toolbar 的 scoreBox 不再顯示
     if (scoreBox) scoreBox.style.display = "none";
   }
 
@@ -625,13 +623,12 @@
 
   // ✅ 比例版評分（可多份）：類別齊全 + 份量比例平衡（菜過多/肉過少都會扣分）
   function calculatePlateScore(){
-    // 1) 各類別份數（你的 portions 是「全盤加總份數」，很適合做比例）
+    // 1) 各類別份數（全盤加總）
     const catPortions = { veg:0, fruit:0, grain:0, protein:0, dairy:0, fat:0 };
 
     for (const [foodId, cnt] of Object.entries(portions)){
       const n = Number(cnt) || 0;
       if (n <= 0) continue;
-
       const cat = FOOD_CATEGORY[foodId];
       if (cat && catPortions[cat] !== undefined){
         catPortions[cat] += n;
@@ -641,106 +638,115 @@
     const total = Object.values(catPortions).reduce((a,b)=>a+b,0);
 
     const catName = {
-      veg:"蔬菜類", fruit:"水果類", grain:"全榖雜糧類",
-      protein:"蛋豆魚肉類", dairy:"乳品類", fat:"油脂與堅果類"
+      veg:"蔬菜類", fruit:"水果類", grain:"全穀雜糧類",
+      protein:"豆魚蛋肉類", dairy:"乳品類", fat:"油脂與堅果類"
     };
 
-    // 空盤
+    // 0 分：空盤
     if (total === 0){
-      return { score: 1, hint: "餐盤是空的", catPortions, ratios: {}, total };
+      return { score: 0, hint: "餐盤是空的", catPortions, total };
     }
 
-    // 2) 出現類別數（齊全度）
-    const presentCats = Object.entries(catPortions).filter(([,v]) => v>0).map(([k])=>k);
-    const missingCats = ["veg","fruit","grain","protein","dairy","fat"].filter(c => catPortions[c] <= 0);
+    // 2) 類別齊全度
+    const allCats = ["veg","fruit","grain","protein","dairy","fat"];
+    const presentCats = allCats.filter(c => catPortions[c] > 0);
+    const missingCats = allCats.filter(c => catPortions[c] <= 0);
 
-    // 3) 各類比例
-    const ratios = Object.fromEntries(
-      Object.entries(catPortions).map(([k,v]) => [k, v/total])
-    );
+    const coreCats = ["grain","veg","protein"];
+    const coreMissing = coreCats.filter(c => catPortions[c] <= 0);
+    const corePresent = coreMissing.length === 0;
 
-    // 4) 設定「合理比例區間」（你可以之後再調）
-    // 目標概念：菜最多、菜>果、飯≈菜（可稍少）、蛋白適中、乳品有、油脂少量
-    const TARGET = {
-      veg:     { min: 0.28, max: 0.45 }, // 菜最多
-      grain:   { min: 0.20, max: 0.35 }, // 飯/全穀約與菜接近但略少也可
-      protein: { min: 0.15, max: 0.28 }, // 蛋白不足很常見 -> 要抓得到
-      fruit:   { min: 0.08, max: 0.20 }, // 水果不要取代蔬菜
-      dairy:   { min: 0.05, max: 0.18 }, // 有就好（你遊戲以一份為概念）
-      fat:     { min: 0.03, max: 0.12 }, // 少量點綴
+    // 3) 份量「理想區間」判定（依你前面規格）
+    const inRange = {
+      grain:   (catPortions.grain === 1),
+      veg:     (catPortions.veg >= 1 && catPortions.veg <= 2),
+      protein: (catPortions.protein === 1),
+      fruit:   (catPortions.fruit <= 1),
+      dairy:   (catPortions.dairy <= 1),
+      fat:     (catPortions.fat <= 1),
     };
 
-    // 5) 計分邏輯：滿分 5，先扣「缺類」，再扣「比例失衡」
-    let score = 5;
+    // 4) 偏多/失衡判定（整數扣分用）
+    // 核心：grain=3、protein=3 視為偏多；fruit/dairy/fat >=2 視為偏多
+    const majorIssues = [];
+    if (catPortions.grain === 3)   majorIssues.push("全穀雜糧類偏多");
+    if (catPortions.protein === 3) majorIssues.push("豆魚蛋肉類偏多");
+    if (catPortions.fruit >= 2)    majorIssues.push("水果類偏多");
+    if (catPortions.dairy >= 2)    majorIssues.push("乳品類偏多");
+    if (catPortions.fat >= 2)      majorIssues.push("油脂與堅果類偏多");
+
+    // 5) 先用「出現類別數 + 核心是否齊全」決定基礎分數
+    let score = 0;
+
+    if (presentCats.length <= 1){
+      score = 0; // 只有 1 類
+    } else if (presentCats.length === 2){
+      score = 1;
+    } else if (presentCats.length === 3){
+      score = corePresent ? 2 : 1;
+    } else if (presentCats.length === 4){
+      score = corePresent ? 3 : 2;
+    } else if (presentCats.length === 5){
+      score = corePresent ? 4 : 3;
+    } else { // 6 類都有
+      score = 4; // 先給 4，符合「比例/份量」再升到 5
+    }
+
+    // 6) 對照你的 5 分條件：六類都有 + 核心理想 + 配角不超過 1 + 沒有「偏多」
+    const perfect =
+      (presentCats.length === 6) &&
+      inRange.grain &&
+      inRange.veg &&
+      inRange.protein &&
+      inRange.fruit &&
+      inRange.dairy &&
+      inRange.fat &&
+      (majorIssues.length === 0);
+
+    if (perfect) score = 5;
+
+    // 7) 「缺核心」上限：少任一核心類，最多 2 分
+    if (!corePresent){
+      score = Math.min(score, 2);
+    }
+
+    // 8) 失衡扣分：出現 2 個以上 majorIssues → 至少降到 2；出現 1 個 → 至少降到 3（但不影響已被上限壓到的情況）
+    if (majorIssues.length >= 2){
+      score = Math.min(score, 2);
+    } else if (majorIssues.length === 1){
+      score = Math.min(score, 3);
+    }
+
+    // 9) 分數限制 0~5
+    score = Math.max(0, Math.min(5, score));
+
+    // 10) hint（最多顯示 3 個）
     const reasons = [];
+    if (missingCats.length) reasons.push(`缺少：${missingCats.map(c=>catName[c]).join("、")}`);
+    if (coreMissing.length) reasons.push(`核心缺少：${coreMissing.map(c=>catName[c]).join("、")}`);
+    if (majorIssues.length) reasons.push(...majorIssues);
 
-    // (A) 缺類扣分：缺 1 類扣 1 分，最多扣到 2 分（避免一扣到底）
-    const missingPenalty = Math.min(2, missingCats.length);
-    if (missingPenalty > 0){
-      score -= missingPenalty;
-      reasons.push(`缺少：${missingCats.map(c=>catName[c]).join("、")}`);
-    }
+    let hint = "整體搭配不錯";
 
-    // (B) 比例失衡扣分：每一類超出區間 => 小扣分；嚴重超出 => 大扣分
-    // 你要的「菜過多/肉過少」會在這裡被判定
-    function ratioPenalty(catKey){
-      const r = ratios[catKey] ?? 0;
-      const {min, max} = TARGET[catKey];
-
-      if (r === 0) return 0; // 缺類已扣過，這裡不重複扣
-
-      if (r < min){
-        const gap = (min - r);
-        if (gap >= 0.12) { reasons.push(`${catName[catKey]}明顯偏少`); return 1; }
-        if (gap >= 0.06) { reasons.push(`${catName[catKey]}偏少`); return 0.5; }
-        return 0;
-      }
-      if (r > max){
-        const gap = (r - max);
-        if (gap >= 0.12) { reasons.push(`${catName[catKey]}明顯偏多`); return 1; }
-        if (gap >= 0.06) { reasons.push(`${catName[catKey]}偏多`); return 0.5; }
-        return 0;
-      }
-      return 0;
-    }
-
-    // 針對六類逐一檢查
-    let balancePenalty = 0;
-    (["veg","grain","protein","fruit","dairy","fat"]).forEach(c => {
-      balancePenalty += ratioPenalty(c);
-    });
-
-    // (C) 額外規則：菜應 > 果；飯與菜不要差太多（避免「飯爆多/菜爆多」）
-    if (catPortions.fruit > 0 && catPortions.veg > 0 && ratios.fruit >= ratios.veg){
-      balancePenalty += 0.5;
-      reasons.push("水果比例不應高於蔬菜");
-    }
-
-    if (catPortions.veg > 0 && catPortions.grain > 0){
-      const diff = Math.abs(ratios.veg - ratios.grain);
-      if (diff >= 0.25){
-        balancePenalty += 0.5;
-        reasons.push("蔬菜與全穀比例差距過大");
+    if (score === 4){
+      if (majorIssues.length){
+        hint = "整體營養結構正確，六大類配置大致均衡，但有一類份量略多，稍微調整即可達到理想餐盤。";
+      } else if (missingCats.length){
+        hint = "整體搭配良好，核心營養類別齊全，若能補齊剩餘營養類別會更完整。";
+      } else {
+        hint = "這是一份接近滿分的餐盤，主食、蔬菜與蛋白質配置正確，再微調比例即可更理想。";
       }
     }
 
-    // 套用失衡扣分（最多扣 2 分，避免太嚴苛）
-    balancePenalty = Math.min(2, balancePenalty);
-    score -= balancePenalty;
-
-    // 6) 分數限制到 1~5
-    score = Math.max(1, Math.min(5, Math.round(score))); // 最後取整數
-
-    // 7) 顯示提示
-    let hint = "比例大致OK";
     if (reasons.length){
-      // 去重 + 合併
       hint = Array.from(new Set(reasons)).slice(0, 3).join("；");
       if (reasons.length > 3) hint += "…";
     }
 
-    return { score, hint, catPortions, ratios, total, presentCats, missingCats };
+    return { score, hint, catPortions, total, presentCats, missingCats };
   }
+
+  
 
   playAgainBtn.addEventListener("click", () => {
     closeModal();
@@ -919,8 +925,6 @@
       window.removeEventListener("pointercancel", onPointerUp);
     }
   }
-
-
 
 </script>
 
