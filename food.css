@@ -151,7 +151,7 @@
 
     .ring img{
       width: 100px;
-      height: 100px;
+      height: 80px;
       display: block;
       pointer-events: none; /* 讓點擊落在 .ring 上 */
     }

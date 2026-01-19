@@ -178,11 +178,42 @@
   }
 
   // ===== Drag helpers =====
+  // ✅ 取代你原本的 onFoodDragStart
+  // 改
   function onFoodDragStart(e){
-    const foodId = e.currentTarget.dataset.foodId;
+    const card = e.currentTarget;
+    const foodId = card.dataset.foodId;
+
     e.dataTransfer.setData("text/plain", foodId);
     e.dataTransfer.effectAllowed = "copy";
+
+    const img = card.querySelector(".food-img");
+    if (!img) return;
+
+    // ✅ 建一個隱藏的 clone，確保 drag image 穩定
+    const ghost = img.cloneNode(true);
+    ghost.style.width = (img.clientWidth || 64) + "px";
+    ghost.style.height = "auto";
+    ghost.style.position = "fixed";
+    ghost.style.top = "-9999px";
+    ghost.style.left = "-9999px";
+    ghost.style.pointerEvents = "none";
+    ghost.style.opacity = "1";
+    document.body.appendChild(ghost);
+
+    const w = ghost.clientWidth || 64;
+    const h = ghost.clientHeight || 64;
+    e.dataTransfer.setDragImage(ghost, Math.floor(w / 2), Math.floor(h / 2));
+
+    // 拖曳結束移除 ghost
+    const cleanup = () => {
+      ghost.remove();
+      card.removeEventListener("dragend", cleanup);
+    };
+    card.addEventListener("dragend", cleanup);
   }
+
+
   function onSlotDragOver(e){
     // 必須 preventDefault 才能 drop
     e.preventDefault();
