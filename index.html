@@ -722,9 +722,17 @@
 
     // 10) hint（最多顯示 3 個）
     const reasons = [];
-    if (missingCats.length) reasons.push(`缺少：${missingCats.map(c=>catName[c]).join("、")}`);
-    if (coreMissing.length) reasons.push(`核心缺少：${coreMissing.map(c=>catName[c]).join("、")}`);
-    if (majorIssues.length) reasons.push(...majorIssues);
+    if (missingCats.length)
+      reasons.push(`缺少：${missingCats.map(c => catName[c]).join("、")}`);
+
+    if (coreMissing.length)
+      reasons.push(`核心缺少：${coreMissing.map(c => catName[c]).join("、")}`);
+
+    if (majorIssues.length)
+      reasons.push(...majorIssues);
+
+    // 最後輸出
+    const result = reasons.join("\n");
 
     let hint = "整體搭配不錯";
 
