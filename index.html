@@ -69,6 +69,23 @@
         </div>
       </section>
 
+      <!-- ✅ 評分遮罩 Modal -->
+      <div class="score-modal" id="scoreModal" aria-hidden="true">
+        <div class="score-card" role="dialog" aria-modal="true" aria-label="餐盤評分">
+          <div class="score-title">你的餐盤評分</div>
+
+          <div class="stars" id="starsRow" aria-label="星星評分"></div>
+
+          <div class="score-text">
+            分數：<b id="modalScoreValue">-</b> / 5
+          </div>
+          <div class="score-hint" id="modalScoreHint"></div>
+
+          <button class="btn" id="playAgainBtn" type="button">再玩一次</button>
+        </div>
+      </div>
+
+
     </div>
   </div>
 
@@ -307,18 +324,90 @@
   const scoreBox = document.getElementById("scoreBox");
   const scoreValueEl = document.getElementById("scoreValue");
   const scoreHintEl = document.getElementById("scoreHint");
+  // ====== 評分 Modal DOM ======
+  const scoreModal = document.getElementById("scoreModal");
+  const starsRow = document.getElementById("starsRow");
+  const modalScoreValue = document.getElementById("modalScoreValue");
+  const modalScoreHint  = document.getElementById("modalScoreHint");
+  const playAgainBtn = document.getElementById("playAgainBtn");
 
-  function showPlateScore(){
-    const result = calculatePlateScore();
+  // 星星圖
+  const STAR_ON  = "pic/star.png";
+  const STAR_OFF = "pic/graystar.png";
 
-    scoreValueEl.textContent = String(result.score);
-    scoreHintEl.textContent = result.hint || "";
-    scoreBox.style.display = "inline-block";
+  // ✅ 送出前的快照（用來「再玩一次」復原）
+  let snapshotSlots = null;
+  let snapshotPortions = null;
+
+  function deepCopy(obj){
+    return JSON.parse(JSON.stringify(obj));
   }
 
-  // ✅ 點鈴鐺 = 原本送出餐盤
-  ringBtn.addEventListener("click", showPlateScore);
+  function restoreSnapshot(){
+    if (!snapshotSlots || !snapshotPortions) return;
 
+    // 還原 slots（你 slots 是 const，但內容可改）
+    for (let i = 0; i < SLOT_COUNT; i++){
+      slots[i] = snapshotSlots[i] || {};
+    }
+
+    // 還原 portions
+    Object.keys(portions).forEach(k => {
+      portions[k] = snapshotPortions[k] ?? 0;
+    });
+
+    renderSlots();
+    renderFoods();
+  }
+
+  function renderStars(score){ // score: 1~5
+    starsRow.innerHTML = "";
+    for (let i = 1; i <= 5; i++){
+      const img = document.createElement("img");
+      img.src = (i <= score) ? STAR_ON : STAR_OFF;
+      img.alt = (i <= score) ? "星" : "灰星";
+      starsRow.appendChild(img);
+    }
+  }
+
+  function openModal(){
+    scoreModal.classList.add("is-open");
+    scoreModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+  }
+
+  function closeModal(){
+    scoreModal.classList.remove("is-open");
+    scoreModal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
+  }
+
+  function showPlateScore(){
+    // ✅ 1) 先存送出前快照（按再玩一次要還原）
+    snapshotSlots = deepCopy(slots);
+    snapshotPortions = deepCopy(portions);
+
+    // ✅ 2) 計算分數
+    const result = calculatePlateScore();
+    const score = Number(result.score) || 1;
+
+    // ✅ 3) 填入 modal
+    modalScoreValue.textContent = String(score);
+    modalScoreHint.textContent = result.hint || "";
+    renderStars(score);
+
+    // ✅ 4) 打開遮罩
+    openModal();
+
+    // （可選）原本 toolbar 的 scoreBox 不再顯示
+    if (scoreBox) scoreBox.style.display = "none";
+  }
+
+  if (ringBtn){
+    ringBtn.addEventListener("click", showPlateScore);
+  }
+
+ 
   // ✅ 鍵盤可操作（可選，但建議）
   ringBtn.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -464,162 +553,178 @@
   renderSlots();
 
   window.addEventListener("resize", () => {
-  applyAutoItemSize();
-});
-
-// ✅ 自動縮放：讓整個遊戲介面「完整塞進螢幕」
-const gameEl  = document.getElementById("game");
-
-function fitGameToScreen(){
-  // 先暫時清掉 transform 才能量到真實尺寸
-  gameEl.style.transform = "none";
-
-  // iOS Safari 用 visualViewport 才準（網址列伸縮會動）
-  const vw = window.visualViewport ? window.visualViewport.width  : window.innerWidth;
-  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-
-  // 量「內容真實大小」
-  const contentW = gameEl.scrollWidth;
-  const contentH = gameEl.scrollHeight;
-
-
-  // 計算縮放（留一點邊界避免貼邊）
-  const padding = 12;
-  let s = Math.min((vw - padding*2) / contentW, (vh - padding*2) / contentH);
-
-  // 上限不放大（桌機維持原尺寸），下限避免小到看不到
-  s = Math.max(0.55, Math.min(s, 1));
-
-  gameEl.style.transform = `scale(${s})`;
-}
-
-// ✅ iOS Safari：視窗高度會因網址列縮放改變，用 visualViewport 監聽最穩
-fitGameToScreen();
-window.addEventListener("resize", fitGameToScreen);
-if (window.visualViewport){
-  window.visualViewport.addEventListener("resize", fitGameToScreen);
-  window.visualViewport.addEventListener("scroll", fitGameToScreen);
-}
-
-
-// ✅ 比例版評分（可多份）：類別齊全 + 份量比例平衡（菜過多/肉過少都會扣分）
-function calculatePlateScore(){
-  // 1) 各類別份數（你的 portions 是「全盤加總份數」，很適合做比例）
-  const catPortions = { veg:0, fruit:0, grain:0, protein:0, dairy:0, fat:0 };
-
-  for (const [foodId, cnt] of Object.entries(portions)){
-    const n = Number(cnt) || 0;
-    if (n <= 0) continue;
-
-    const cat = FOOD_CATEGORY[foodId];
-    if (cat && catPortions[cat] !== undefined){
-      catPortions[cat] += n;
-    }
-  }
-
-  const total = Object.values(catPortions).reduce((a,b)=>a+b,0);
-
-  const catName = {
-    veg:"蔬菜類", fruit:"水果類", grain:"全榖雜糧類",
-    protein:"蛋豆魚肉類", dairy:"乳品類", fat:"油脂與堅果類"
-  };
-
-  // 空盤
-  if (total === 0){
-    return { score: 1, hint: "餐盤是空的", catPortions, ratios: {}, total };
-  }
-
-  // 2) 出現類別數（齊全度）
-  const presentCats = Object.entries(catPortions).filter(([,v]) => v>0).map(([k])=>k);
-  const missingCats = ["veg","fruit","grain","protein","dairy","fat"].filter(c => catPortions[c] <= 0);
-
-  // 3) 各類比例
-  const ratios = Object.fromEntries(
-    Object.entries(catPortions).map(([k,v]) => [k, v/total])
-  );
-
-  // 4) 設定「合理比例區間」（你可以之後再調）
-  // 目標概念：菜最多、菜>果、飯≈菜（可稍少）、蛋白適中、乳品有、油脂少量
-  const TARGET = {
-    veg:     { min: 0.28, max: 0.45 }, // 菜最多
-    grain:   { min: 0.20, max: 0.35 }, // 飯/全穀約與菜接近但略少也可
-    protein: { min: 0.15, max: 0.28 }, // 蛋白不足很常見 -> 要抓得到
-    fruit:   { min: 0.08, max: 0.20 }, // 水果不要取代蔬菜
-    dairy:   { min: 0.05, max: 0.18 }, // 有就好（你遊戲以一份為概念）
-    fat:     { min: 0.03, max: 0.12 }, // 少量點綴
-  };
-
-  // 5) 計分邏輯：滿分 5，先扣「缺類」，再扣「比例失衡」
-  let score = 5;
-  const reasons = [];
-
-  // (A) 缺類扣分：缺 1 類扣 1 分，最多扣到 2 分（避免一扣到底）
-  const missingPenalty = Math.min(2, missingCats.length);
-  if (missingPenalty > 0){
-    score -= missingPenalty;
-    reasons.push(`缺少：${missingCats.map(c=>catName[c]).join("、")}`);
-  }
-
-  // (B) 比例失衡扣分：每一類超出區間 => 小扣分；嚴重超出 => 大扣分
-  // 你要的「菜過多/肉過少」會在這裡被判定
-  function ratioPenalty(catKey){
-    const r = ratios[catKey] ?? 0;
-    const {min, max} = TARGET[catKey];
-
-    if (r === 0) return 0; // 缺類已扣過，這裡不重複扣
-
-    if (r < min){
-      const gap = (min - r);
-      if (gap >= 0.12) { reasons.push(`${catName[catKey]}明顯偏少`); return 1; }
-      if (gap >= 0.06) { reasons.push(`${catName[catKey]}偏少`); return 0.5; }
-      return 0;
-    }
-    if (r > max){
-      const gap = (r - max);
-      if (gap >= 0.12) { reasons.push(`${catName[catKey]}明顯偏多`); return 1; }
-      if (gap >= 0.06) { reasons.push(`${catName[catKey]}偏多`); return 0.5; }
-      return 0;
-    }
-    return 0;
-  }
-
-  // 針對六類逐一檢查
-  let balancePenalty = 0;
-  (["veg","grain","protein","fruit","dairy","fat"]).forEach(c => {
-    balancePenalty += ratioPenalty(c);
+    applyAutoItemSize();
   });
 
-  // (C) 額外規則：菜應 > 果；飯與菜不要差太多（避免「飯爆多/菜爆多」）
-  if (catPortions.fruit > 0 && catPortions.veg > 0 && ratios.fruit >= ratios.veg){
-    balancePenalty += 0.5;
-    reasons.push("水果比例不應高於蔬菜");
+  // ✅ 自動縮放：讓整個遊戲介面「完整塞進螢幕」
+  const gameEl  = document.getElementById("game");
+
+  function fitGameToScreen(){
+    // 先暫時清掉 transform 才能量到真實尺寸
+    gameEl.style.transform = "none";
+
+    // iOS Safari 用 visualViewport 才準（網址列伸縮會動）
+    const vw = window.visualViewport ? window.visualViewport.width  : window.innerWidth;
+    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+
+    // 量「內容真實大小」
+    const contentW = gameEl.scrollWidth;
+    const contentH = gameEl.scrollHeight;
+
+
+    // 計算縮放（留一點邊界避免貼邊）
+    const padding = 12;
+    let s = Math.min((vw - padding*2) / contentW, (vh - padding*2) / contentH);
+
+    // 上限不放大（桌機維持原尺寸），下限避免小到看不到
+    s = Math.max(0.55, Math.min(s, 1));
+
+    gameEl.style.transform = `scale(${s})`;
   }
 
-  if (catPortions.veg > 0 && catPortions.grain > 0){
-    const diff = Math.abs(ratios.veg - ratios.grain);
-    if (diff >= 0.25){
-      balancePenalty += 0.5;
-      reasons.push("蔬菜與全穀比例差距過大");
+  // ✅ iOS Safari：視窗高度會因網址列縮放改變，用 visualViewport 監聽最穩
+  fitGameToScreen();
+  window.addEventListener("resize", fitGameToScreen);
+  if (window.visualViewport){
+    window.visualViewport.addEventListener("resize", fitGameToScreen);
+    window.visualViewport.addEventListener("scroll", fitGameToScreen);
+  }
+
+
+  // ✅ 比例版評分（可多份）：類別齊全 + 份量比例平衡（菜過多/肉過少都會扣分）
+  function calculatePlateScore(){
+    // 1) 各類別份數（你的 portions 是「全盤加總份數」，很適合做比例）
+    const catPortions = { veg:0, fruit:0, grain:0, protein:0, dairy:0, fat:0 };
+
+    for (const [foodId, cnt] of Object.entries(portions)){
+      const n = Number(cnt) || 0;
+      if (n <= 0) continue;
+
+      const cat = FOOD_CATEGORY[foodId];
+      if (cat && catPortions[cat] !== undefined){
+        catPortions[cat] += n;
+      }
     }
+
+    const total = Object.values(catPortions).reduce((a,b)=>a+b,0);
+
+    const catName = {
+      veg:"蔬菜類", fruit:"水果類", grain:"全榖雜糧類",
+      protein:"蛋豆魚肉類", dairy:"乳品類", fat:"油脂與堅果類"
+    };
+
+    // 空盤
+    if (total === 0){
+      return { score: 1, hint: "餐盤是空的", catPortions, ratios: {}, total };
+    }
+
+    // 2) 出現類別數（齊全度）
+    const presentCats = Object.entries(catPortions).filter(([,v]) => v>0).map(([k])=>k);
+    const missingCats = ["veg","fruit","grain","protein","dairy","fat"].filter(c => catPortions[c] <= 0);
+
+    // 3) 各類比例
+    const ratios = Object.fromEntries(
+      Object.entries(catPortions).map(([k,v]) => [k, v/total])
+    );
+
+    // 4) 設定「合理比例區間」（你可以之後再調）
+    // 目標概念：菜最多、菜>果、飯≈菜（可稍少）、蛋白適中、乳品有、油脂少量
+    const TARGET = {
+      veg:     { min: 0.28, max: 0.45 }, // 菜最多
+      grain:   { min: 0.20, max: 0.35 }, // 飯/全穀約與菜接近但略少也可
+      protein: { min: 0.15, max: 0.28 }, // 蛋白不足很常見 -> 要抓得到
+      fruit:   { min: 0.08, max: 0.20 }, // 水果不要取代蔬菜
+      dairy:   { min: 0.05, max: 0.18 }, // 有就好（你遊戲以一份為概念）
+      fat:     { min: 0.03, max: 0.12 }, // 少量點綴
+    };
+
+    // 5) 計分邏輯：滿分 5，先扣「缺類」，再扣「比例失衡」
+    let score = 5;
+    const reasons = [];
+
+    // (A) 缺類扣分：缺 1 類扣 1 分，最多扣到 2 分（避免一扣到底）
+    const missingPenalty = Math.min(2, missingCats.length);
+    if (missingPenalty > 0){
+      score -= missingPenalty;
+      reasons.push(`缺少：${missingCats.map(c=>catName[c]).join("、")}`);
+    }
+
+    // (B) 比例失衡扣分：每一類超出區間 => 小扣分；嚴重超出 => 大扣分
+    // 你要的「菜過多/肉過少」會在這裡被判定
+    function ratioPenalty(catKey){
+      const r = ratios[catKey] ?? 0;
+      const {min, max} = TARGET[catKey];
+
+      if (r === 0) return 0; // 缺類已扣過，這裡不重複扣
+
+      if (r < min){
+        const gap = (min - r);
+        if (gap >= 0.12) { reasons.push(`${catName[catKey]}明顯偏少`); return 1; }
+        if (gap >= 0.06) { reasons.push(`${catName[catKey]}偏少`); return 0.5; }
+        return 0;
+      }
+      if (r > max){
+        const gap = (r - max);
+        if (gap >= 0.12) { reasons.push(`${catName[catKey]}明顯偏多`); return 1; }
+        if (gap >= 0.06) { reasons.push(`${catName[catKey]}偏多`); return 0.5; }
+        return 0;
+      }
+      return 0;
+    }
+
+    // 針對六類逐一檢查
+    let balancePenalty = 0;
+    (["veg","grain","protein","fruit","dairy","fat"]).forEach(c => {
+      balancePenalty += ratioPenalty(c);
+    });
+
+    // (C) 額外規則：菜應 > 果；飯與菜不要差太多（避免「飯爆多/菜爆多」）
+    if (catPortions.fruit > 0 && catPortions.veg > 0 && ratios.fruit >= ratios.veg){
+      balancePenalty += 0.5;
+      reasons.push("水果比例不應高於蔬菜");
+    }
+
+    if (catPortions.veg > 0 && catPortions.grain > 0){
+      const diff = Math.abs(ratios.veg - ratios.grain);
+      if (diff >= 0.25){
+        balancePenalty += 0.5;
+        reasons.push("蔬菜與全穀比例差距過大");
+      }
+    }
+
+    // 套用失衡扣分（最多扣 2 分，避免太嚴苛）
+    balancePenalty = Math.min(2, balancePenalty);
+    score -= balancePenalty;
+
+    // 6) 分數限制到 1~5
+    score = Math.max(1, Math.min(5, Math.round(score))); // 最後取整數
+
+    // 7) 顯示提示
+    let hint = "比例大致OK";
+    if (reasons.length){
+      // 去重 + 合併
+      hint = Array.from(new Set(reasons)).slice(0, 3).join("；");
+      if (reasons.length > 3) hint += "…";
+    }
+
+    return { score, hint, catPortions, ratios, total, presentCats, missingCats };
   }
 
-  // 套用失衡扣分（最多扣 2 分，避免太嚴苛）
-  balancePenalty = Math.min(2, balancePenalty);
-  score -= balancePenalty;
+  playAgainBtn.addEventListener("click", () => {
+    closeModal();
+    restoreSnapshot();
+  });
 
-  // 6) 分數限制到 1~5
-  score = Math.max(1, Math.min(5, Math.round(score))); // 最後取整數
+  scoreModal.addEventListener("click", (e) => {
+    // 點到遮罩背景才關（不要點卡片也關）
+    if (e.target === scoreModal) closeModal();
+  });
 
-  // 7) 顯示提示
-  let hint = "比例大致OK";
-  if (reasons.length){
-    // 去重 + 合併
-    hint = Array.from(new Set(reasons)).slice(0, 3).join("；");
-    if (reasons.length > 3) hint += "…";
-  }
-
-  return { score, hint, catPortions, ratios, total, presentCats, missingCats };
-}
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && scoreModal.classList.contains("is-open")){
+      closeModal();
+    }
+  });
 
 
 </script>

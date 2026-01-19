@@ -564,3 +564,66 @@
     .tray{ width: 560px; height: 350px; } /* 回到基準尺寸，交給 scale 縮放 */
   }
 
+  /* ====== Score Modal ====== */
+  .score-modal{
+    position: fixed;
+    inset: 0;
+    display: none;            /* 預設關閉 */
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,.45); /* 半透明遮罩 */
+    z-index: 9999;
+    padding: 16px;
+  }
+
+  .score-modal.is-open{
+    display: flex;
+  }
+
+  .score-card{
+    width: min(420px, 92vw);
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(6px);
+    border-radius: 16px;
+    padding: 18px 18px 16px;
+    box-shadow: 0 18px 40px rgba(0,0,0,.25);
+    text-align: center;
+  }
+
+  .score-title{
+    font-weight: 900;
+    font-size: 18px;
+    margin-bottom: 10px;
+  }
+
+  .stars{
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 10px 0 8px;
+  }
+
+  .stars img{
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .score-text{
+    font-size: 14px;
+    margin-top: 6px;
+  }
+
+  .score-hint{
+    margin: 6px 0 12px;
+    font-size: 13px;
+    opacity: .85;
+    line-height: 1.4;
+  }
+
+  /* 讓 modal 開啟時避免背景捲動（可選） */
+  body.modal-open{
+    overflow: hidden;
+  }
