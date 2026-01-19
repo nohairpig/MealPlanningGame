@@ -758,6 +758,169 @@
     }
   });
 
+  // ===============================
+  // ✅ 手機快速拖曳（Pointer Events）
+  // 桌機仍用原本 HTML5 drag/drop
+  // ===============================
+  const isTouchDevice = () =>
+    ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+
+  if (isTouchDevice()) {
+    // 手機避免頁面捲動干擾拖曳（只限制食物區塊）
+    // 建議 food.css 也加 touch-action: none;（下面有給）
+    enableFastTouchDrag();
+  }
+
+  function enableFastTouchDrag() {
+    let dragging = null; // { foodId, fromSlot, ghostEl, offsetX, offsetY }
+
+    // 把「底部 food-card」改成用 pointer 觸控拖曳
+    function bindFoodCardsPointer() {
+      document.querySelectorAll(".food-card").forEach(card => {
+        card.draggable = false; // 手機不走 HTML5 drag
+        card.addEventListener("pointerdown", onFoodPointerDown, { passive: false });
+      });
+    }
+
+    // 把「餐盤內 chip」也改成用 pointer 拖曳（拖去別格或丟垃圾桶）
+    function bindChipsPointer() {
+      document.querySelectorAll(".food-item").forEach(chip => {
+        chip.draggable = false;
+        chip.addEventListener("pointerdown", onChipPointerDown, { passive: false });
+      });
+    }
+
+    // 初始化綁定（並在每次 render 後再綁一次）
+    const _renderFoods = renderFoods;
+    renderFoods = function () {
+      _renderFoods();
+      bindFoodCardsPointer();
+    };
+
+    const _renderSlots = renderSlots;
+    renderSlots = function () {
+      _renderSlots();
+      bindChipsPointer();
+    };
+
+    // 第一次立刻綁定
+    bindFoodCardsPointer();
+    bindChipsPointer();
+
+    function onFoodPointerDown(e) {
+      // 只處理觸控/筆
+      if (e.pointerType === "mouse") return;
+
+      e.preventDefault();
+
+      const card = e.currentTarget;
+      const foodId = card.dataset.foodId;
+      const img = card.querySelector(".food-img");
+      if (!foodId || !img) return;
+
+      startDrag(e, { foodId, fromSlot: "" }, img);
+    }
+
+    function onChipPointerDown(e) {
+      if (e.pointerType === "mouse") return;
+
+      e.preventDefault();
+
+      const chip = e.currentTarget;
+      const foodId = chip.dataset.foodId;
+      const fromSlot = chip.dataset.slot;
+      const img = chip.querySelector(".food-icon");
+      if (!foodId || fromSlot === undefined || !img) return;
+
+      startDrag(e, { foodId, fromSlot }, img);
+    }
+
+    function startDrag(e, meta, imgEl) {
+      // 做一個跟著手指走的 ghost（只顯示 png）
+      const rect = imgEl.getBoundingClientRect();
+      const ghost = imgEl.cloneNode(true);
+      ghost.style.position = "fixed";
+      ghost.style.left = rect.left + "px";
+      ghost.style.top = rect.top + "px";
+      ghost.style.width = rect.width + "px";
+      ghost.style.height = "auto";
+      ghost.style.pointerEvents = "none";
+      ghost.style.zIndex = "9999";
+      ghost.style.transform = "translateZ(0)";
+      document.body.appendChild(ghost);
+
+      dragging = {
+        foodId: meta.foodId,
+        fromSlot: meta.fromSlot, // "" 代表從底部列表來；有值代表餐盤內拖
+        ghostEl: ghost,
+        offsetX: e.clientX - rect.left,
+        offsetY: e.clientY - rect.top,
+      };
+
+      window.addEventListener("pointermove", onPointerMove, { passive: false });
+      window.addEventListener("pointerup", onPointerUp, { passive: false });
+      window.addEventListener("pointercancel", onPointerUp, { passive: false });
+    }
+
+    function onPointerMove(e) {
+      if (!dragging) return;
+      e.preventDefault();
+
+      const x = e.clientX - dragging.offsetX;
+      const y = e.clientY - dragging.offsetY;
+
+      dragging.ghostEl.style.left = x + "px";
+      dragging.ghostEl.style.top = y + "px";
+    }
+
+    function onPointerUp(e) {
+      if (!dragging) return;
+      e.preventDefault();
+
+      // 找目前手指下方的元素
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+
+      // 1) 丟垃圾桶
+      const overTrash = el && (el.closest("#trash"));
+      if (overTrash && dragging.fromSlot !== "") {
+        removeFood(dragging.foodId, Number(dragging.fromSlot));
+        cleanupDrag();
+        return;
+      }
+
+      // 2) 丟到某個格子
+      const comp = el && el.closest(".compartment");
+      if (comp) {
+        const slotIndex = Number(comp.dataset.slot);
+
+        // 從餐盤內移動
+        if (dragging.fromSlot !== "") {
+          const fromSlot = Number(dragging.fromSlot);
+          if (fromSlot !== slotIndex) {
+            if (canAddToSlot(dragging.foodId, slotIndex)) {
+              removeFood(dragging.foodId, fromSlot);
+              addFood(dragging.foodId, slotIndex);
+            }
+          }
+        } else {
+          // 從底部新增
+          addFood(dragging.foodId, slotIndex);
+        }
+      }
+
+      cleanupDrag();
+    }
+
+    function cleanupDrag() {
+      dragging.ghostEl?.remove();
+      dragging = null;
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    }
+  }
+
+
 
 </script>
 
