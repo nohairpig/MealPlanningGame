@@ -46,45 +46,29 @@
 
         <div class="toolbar">
           <div class="note">
-            操作：將食物直接拖拉至餐盤中即可。<br/>
+            操作：
+            將食物直接拖拉至餐盤中即可。<br/>
           </div>
+          <!-- 1) 在你原本的 toolbar 這段裡面（clearAll 旁邊）加一顆送出按鈕 + 顯示分數用的區塊 -->
+          
           <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
             <div class="status" id="status">已選 0 份（共 0 種）</div>
+
             <button class="btn secondary" id="clearAll" type="button">清空整個餐盤</button>
+
+            <!-- ✅ 新增：送出計算 -->
+            <button class="btn" id="submitPlate" type="button">送出餐盤</button>
+
+            <!-- ✅ 新增：結果顯示 -->
+            <div class="status" id="scoreBox" style="display:none;">
+              分數：<b id="scoreValue">-</b> / 5
+              <span id="scoreHint" style="margin-left:8px;"></span>
+            </div>
           </div>
         </div>
       </section>
 
     </div>
-  </div>
-    
-
-
-    <!-- PANEL -->
-    <section class="panel">
-      <!-- slot picker -->
-      <div class="tabs" role="tablist" aria-label="食物類別">
-        <button class="tab veg" role="tab" aria-selected="true" data-tab="veg">蔬菜類</button>
-        <button class="tab fruit" role="tab" aria-selected="false" data-tab="fruit">水果類</button>
-        <button class="tab grain" role="tab" aria-selected="false" data-tab="grain">全榖雜糧類</button>
-        <button class="tab protein" role="tab" aria-selected="false" data-tab="protein">蛋豆魚肉類</button>
-        <button class="tab dairy" role="tab" aria-selected="false" data-tab="dairy">乳品類</button>
-        <button class="tab fat" role="tab" aria-selected="false" data-tab="fat">油脂與堅果類</button>
-      </div>
-
-      <div class="foods" id="foods" aria-label="食物列表"></div>
-
-      <div class="toolbar">
-        <div class="note">
-          操作：
-          將食物直接拖拉至餐盤中即可。<br/>
-        </div>
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <div class="status" id="status">已選 0 份（共 0 種）</div>
-          <button class="btn secondary" id="clearAll" type="button">清空整個餐盤</button>
-        </div>
-      </div>
-    </section>
   </div>
 
   <script>
@@ -311,6 +295,30 @@
     }
   }
 
+  // ✅ 食物 id -> 類別（calculatePlateScore 會用到）
+  const FOOD_CATEGORY = Object.entries(FOOD_DATA).reduce((acc, [cat, list]) => {
+    list.forEach(item => acc[item.id] = cat);
+    return acc;
+  }, {});
+
+  // ✅ DOM：送出按鈕與分數顯示區
+  const submitPlateBtn = document.getElementById("submitPlate");
+  const scoreBox = document.getElementById("scoreBox");
+  const scoreValueEl = document.getElementById("scoreValue");
+  const scoreHintEl = document.getElementById("scoreHint");
+
+  // ✅ 綁定「送出餐盤」點擊事件（你現在缺這段）
+  submitPlateBtn.addEventListener("click", () => {
+    const result = calculatePlateScore();
+
+    scoreValueEl.textContent = String(result.score);
+    scoreHintEl.textContent = result.hint || "";
+    scoreBox.style.display = "inline-block";
+
+    // 若你想在 console 看詳細數據（方便調參），可打開這行
+    // console.log(result);
+  });
+
 
   function renderSlots(){
     for (let i=0;i<SLOT_COUNT;i++){
@@ -335,13 +343,6 @@
             <div class="food-qty">× ${cnt}</div>
           </div>
         `;
-
-
-        // chip.querySelector(".food-remove").addEventListener("click", (e) => {
-        //   e.stopPropagation();
-        //   removeFood(foodId, i);
-        // });
-
         
         chips.appendChild(chip);
       });
@@ -489,6 +490,126 @@ window.addEventListener("resize", fitGameToScreen);
 if (window.visualViewport){
   window.visualViewport.addEventListener("resize", fitGameToScreen);
   window.visualViewport.addEventListener("scroll", fitGameToScreen);
+}
+
+
+// ✅ 比例版評分（可多份）：類別齊全 + 份量比例平衡（菜過多/肉過少都會扣分）
+function calculatePlateScore(){
+  // 1) 各類別份數（你的 portions 是「全盤加總份數」，很適合做比例）
+  const catPortions = { veg:0, fruit:0, grain:0, protein:0, dairy:0, fat:0 };
+
+  for (const [foodId, cnt] of Object.entries(portions)){
+    const n = Number(cnt) || 0;
+    if (n <= 0) continue;
+
+    const cat = FOOD_CATEGORY[foodId];
+    if (cat && catPortions[cat] !== undefined){
+      catPortions[cat] += n;
+    }
+  }
+
+  const total = Object.values(catPortions).reduce((a,b)=>a+b,0);
+
+  const catName = {
+    veg:"蔬菜類", fruit:"水果類", grain:"全榖雜糧類",
+    protein:"蛋豆魚肉類", dairy:"乳品類", fat:"油脂與堅果類"
+  };
+
+  // 空盤
+  if (total === 0){
+    return { score: 1, hint: "餐盤是空的", catPortions, ratios: {}, total };
+  }
+
+  // 2) 出現類別數（齊全度）
+  const presentCats = Object.entries(catPortions).filter(([,v]) => v>0).map(([k])=>k);
+  const missingCats = ["veg","fruit","grain","protein","dairy","fat"].filter(c => catPortions[c] <= 0);
+
+  // 3) 各類比例
+  const ratios = Object.fromEntries(
+    Object.entries(catPortions).map(([k,v]) => [k, v/total])
+  );
+
+  // 4) 設定「合理比例區間」（你可以之後再調）
+  // 目標概念：菜最多、菜>果、飯≈菜（可稍少）、蛋白適中、乳品有、油脂少量
+  const TARGET = {
+    veg:     { min: 0.28, max: 0.45 }, // 菜最多
+    grain:   { min: 0.20, max: 0.35 }, // 飯/全穀約與菜接近但略少也可
+    protein: { min: 0.15, max: 0.28 }, // 蛋白不足很常見 -> 要抓得到
+    fruit:   { min: 0.08, max: 0.20 }, // 水果不要取代蔬菜
+    dairy:   { min: 0.05, max: 0.18 }, // 有就好（你遊戲以一份為概念）
+    fat:     { min: 0.03, max: 0.12 }, // 少量點綴
+  };
+
+  // 5) 計分邏輯：滿分 5，先扣「缺類」，再扣「比例失衡」
+  let score = 5;
+  const reasons = [];
+
+  // (A) 缺類扣分：缺 1 類扣 1 分，最多扣到 2 分（避免一扣到底）
+  const missingPenalty = Math.min(2, missingCats.length);
+  if (missingPenalty > 0){
+    score -= missingPenalty;
+    reasons.push(`缺少：${missingCats.map(c=>catName[c]).join("、")}`);
+  }
+
+  // (B) 比例失衡扣分：每一類超出區間 => 小扣分；嚴重超出 => 大扣分
+  // 你要的「菜過多/肉過少」會在這裡被判定
+  function ratioPenalty(catKey){
+    const r = ratios[catKey] ?? 0;
+    const {min, max} = TARGET[catKey];
+
+    if (r === 0) return 0; // 缺類已扣過，這裡不重複扣
+
+    if (r < min){
+      const gap = (min - r);
+      if (gap >= 0.12) { reasons.push(`${catName[catKey]}明顯偏少`); return 1; }
+      if (gap >= 0.06) { reasons.push(`${catName[catKey]}偏少`); return 0.5; }
+      return 0;
+    }
+    if (r > max){
+      const gap = (r - max);
+      if (gap >= 0.12) { reasons.push(`${catName[catKey]}明顯偏多`); return 1; }
+      if (gap >= 0.06) { reasons.push(`${catName[catKey]}偏多`); return 0.5; }
+      return 0;
+    }
+    return 0;
+  }
+
+  // 針對六類逐一檢查
+  let balancePenalty = 0;
+  (["veg","grain","protein","fruit","dairy","fat"]).forEach(c => {
+    balancePenalty += ratioPenalty(c);
+  });
+
+  // (C) 額外規則：菜應 > 果；飯與菜不要差太多（避免「飯爆多/菜爆多」）
+  if (catPortions.fruit > 0 && catPortions.veg > 0 && ratios.fruit >= ratios.veg){
+    balancePenalty += 0.5;
+    reasons.push("水果比例不應高於蔬菜");
+  }
+
+  if (catPortions.veg > 0 && catPortions.grain > 0){
+    const diff = Math.abs(ratios.veg - ratios.grain);
+    if (diff >= 0.25){
+      balancePenalty += 0.5;
+      reasons.push("蔬菜與全穀比例差距過大");
+    }
+  }
+
+  // 套用失衡扣分（最多扣 2 分，避免太嚴苛）
+  balancePenalty = Math.min(2, balancePenalty);
+  score -= balancePenalty;
+
+  // 6) 分數限制到 1~5
+  score = Math.max(1, Math.min(5, Math.round(score))); // 最後取整數
+
+  // 7) 顯示提示
+  let hint = "比例大致OK";
+  if (reasons.length){
+    // 去重 + 合併
+    hint = Array.from(new Set(reasons)).slice(0, 3).join("；");
+    if (reasons.length > 3) hint += "…";
+  }
+
+  return { score, hint, catPortions, ratios, total, presentCats, missingCats };
 }
 
 
