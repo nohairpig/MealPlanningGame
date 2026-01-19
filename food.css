@@ -55,7 +55,28 @@
       z-index: 0;
     }
 
-    .page{
+    /* 舞台：永遠置中顯示 */
+    .stage{
+      position: relative;
+      z-index: 1;
+      height: 100dvh;
+      width: 100vw;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding-top: 10px;
+    }
+
+
+   /* ✅ #game 就是整個遊戲內容（餐盤+panel） */
+  #game{
+    width: 1040px;              /* 桌機設計基準 */
+    max-width: none;
+    margin: 0;
+    transform-origin: top center;
+    will-change: transform;
+  }
+    /* .page{
       max-width: 1040px;
       margin: 0 auto;
       padding: 22px 18px;
@@ -64,10 +85,16 @@
     }
 
     .page{
-      width: 1040px;                 /* ✅ 你的設計基準寬 */
-      transform-origin: top center;  /* ✅ 從上方中間縮放 */
+      width: 1040px;                
+      transform-origin: top center;  
       will-change: transform;
       margin: 0 auto;
+    } */
+
+    .page{
+      padding: 22px 18px;
+      position: relative;
+      z-index: 1;
     }
 
     /* ===== tray area ===== */

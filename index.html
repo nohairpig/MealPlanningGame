@@ -8,41 +8,56 @@
   
 </head>
 <body>
-  <div class="page" id="game">
+  <div class="stage" id="stage">
+    <div class="page" id="game">
 
-    <!-- TRAY + TRASH -->
-    <section class="tray-area">
-      <div class="tray-wrap">
-        <div class="tray" aria-label="餐盤（同格可多樣）">
-          <div class="tray-grid">
-            <div class="compartment" data-slot="0">
-              <div class="slot-body" id="slotBody0"></div>
-            </div>
-
-            <div class="compartment circle" data-slot="1">
-              <div class="slot-body" id="slotBody1"></div>
-            </div>
-
-            <div class="compartment" data-slot="2">
-              <div class="slot-body" id="slotBody2"></div>
-            </div>
-
-            <div class="compartment large" data-slot="3">
-              <div class="slot-body" id="slotBody3"></div>
-            </div>
-
-            <div class="compartment" data-slot="4">
-              <div class="slot-body" id="slotBody4"></div>
+      <!-- TRAY + TRASH -->
+      <section class="tray-area">
+        <div class="tray-wrap">
+          <div class="tray" aria-label="餐盤（同格可多樣）">
+            <div class="tray-grid">
+              <div class="compartment" data-slot="0"><div class="slot-body" id="slotBody0"></div></div>
+              <div class="compartment circle" data-slot="1"><div class="slot-body" id="slotBody1"></div></div>
+              <div class="compartment" data-slot="2"><div class="slot-body" id="slotBody2"></div></div>
+              <div class="compartment large" data-slot="3"><div class="slot-body" id="slotBody3"></div></div>
+              <div class="compartment" data-slot="4"><div class="slot-body" id="slotBody4"></div></div>
             </div>
           </div>
-          <!-- Trash bin (drop to delete) -->
+
+          <div class="trash" id="trash" aria-label="垃圾桶（拖曳到此刪除）">
+            <img id="trashImg" src="pic/bin_close.png" alt="垃圾桶" draggable="false">
+            <div class="trash-hint">拖到這裡刪除</div>
+          </div>
         </div>
-        <div class="trash" id="trash" aria-label="垃圾桶（拖曳到此刪除）">
-          <img id="trashImg" src="pic/bin_close.png" alt="垃圾桶" draggable="false">
-          <div class="trash-hint">拖到這裡刪除</div>
+      </section>
+
+      <!-- PANEL ✅ 一定要在 #game 裡 -->
+      <section class="panel">
+        <div class="tabs" role="tablist" aria-label="食物類別">
+          <button class="tab veg" role="tab" aria-selected="true" data-tab="veg">蔬菜類</button>
+          <button class="tab fruit" role="tab" aria-selected="false" data-tab="fruit">水果類</button>
+          <button class="tab grain" role="tab" aria-selected="false" data-tab="grain">全榖雜糧類</button>
+          <button class="tab protein" role="tab" aria-selected="false" data-tab="protein">蛋豆魚肉類</button>
+          <button class="tab dairy" role="tab" aria-selected="false" data-tab="dairy">乳品類</button>
+          <button class="tab fat" role="tab" aria-selected="false" data-tab="fat">油脂與堅果類</button>
         </div>
-      </div>
-    </section>
+
+        <div class="foods" id="foods" aria-label="食物列表"></div>
+
+        <div class="toolbar">
+          <div class="note">
+            操作：將食物直接拖拉至餐盤中即可。<br/>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <div class="status" id="status">已選 0 份（共 0 種）</div>
+            <button class="btn secondary" id="clearAll" type="button">清空整個餐盤</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+    
 
 
     <!-- PANEL -->
@@ -443,27 +458,39 @@
 });
 
 // ✅ 自動縮放：讓整個遊戲介面「完整塞進螢幕」
-const gameEl = document.getElementById("game");
+const gameEl  = document.getElementById("game");
 
 function fitGameToScreen(){
-  const BASE_W = 1040;  // 你的設計寬
-  const BASE_H = 780;   // 你的設計高（可微調：越大=縮越小）
-  
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+  // 先暫時清掉 transform 才能量到真實尺寸
+  gameEl.style.transform = "none";
 
-  // 用寬高比例取最小，確保「整張」都看得到
-  let s = Math.min(vw / BASE_W, vh / BASE_H);
+  // iOS Safari 用 visualViewport 才準（網址列伸縮會動）
+  const vw = window.visualViewport ? window.visualViewport.width  : window.innerWidth;
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
 
-  // 避免太小看不清楚：你可自行調整下限
+  // 量「內容真實大小」
+  const contentW = gameEl.scrollWidth;
+  const contentH = gameEl.scrollHeight;
+
+
+  // 計算縮放（留一點邊界避免貼邊）
+  const padding = 12;
+  let s = Math.min((vw - padding*2) / contentW, (vh - padding*2) / contentH);
+
+  // 上限不放大（桌機維持原尺寸），下限避免小到看不到
   s = Math.max(0.55, Math.min(s, 1));
 
   gameEl.style.transform = `scale(${s})`;
 }
 
-// init + resize
+// ✅ iOS Safari：視窗高度會因網址列縮放改變，用 visualViewport 監聽最穩
 fitGameToScreen();
 window.addEventListener("resize", fitGameToScreen);
+if (window.visualViewport){
+  window.visualViewport.addEventListener("resize", fitGameToScreen);
+  window.visualViewport.addEventListener("scroll", fitGameToScreen);
+}
+
 
 </script>
 
