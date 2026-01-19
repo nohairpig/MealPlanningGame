@@ -8,10 +8,7 @@
   
 </head>
 <body>
-  <div class="hi">
-    try
-  </div>
-  <div class="page">
+  <div class="page" id="game">
 
     <!-- TRAY + TRASH -->
     <section class="tray-area">
@@ -444,6 +441,29 @@
   window.addEventListener("resize", () => {
   applyAutoItemSize();
 });
+
+// ✅ 自動縮放：讓整個遊戲介面「完整塞進螢幕」
+const gameEl = document.getElementById("game");
+
+function fitGameToScreen(){
+  const BASE_W = 1040;  // 你的設計寬
+  const BASE_H = 780;   // 你的設計高（可微調：越大=縮越小）
+  
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // 用寬高比例取最小，確保「整張」都看得到
+  let s = Math.min(vw / BASE_W, vh / BASE_H);
+
+  // 避免太小看不清楚：你可自行調整下限
+  s = Math.max(0.55, Math.min(s, 1));
+
+  gameEl.style.transform = `scale(${s})`;
+}
+
+// init + resize
+fitGameToScreen();
+window.addEventListener("resize", fitGameToScreen);
 
 </script>
 

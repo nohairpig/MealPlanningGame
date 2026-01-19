@@ -18,11 +18,17 @@
       --white:#fff;
     }
     *{ box-sizing:border-box; }
+
+    html, body{
+      height: 100%;
+    }
+
     body{
       margin:0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans TC", Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
+      overflow: hidden;              /*✅ 不要讓外層捲動，避免被切割感*/
     }
     /* 背景層 */
     body::before{
@@ -55,6 +61,13 @@
       padding: 22px 18px;
       position: relative;
       z-index: 1;
+    }
+
+    .page{
+      width: 1040px;                 /* ✅ 你的設計基準寬 */
+      transform-origin: top center;  /* ✅ 從上方中間縮放 */
+      will-change: transform;
+      margin: 0 auto;
     }
 
     /* ===== tray area ===== */
@@ -493,10 +506,8 @@
       background: rgba(255,255,255,.98);
     }
 
-    
+  
+  @media (max-width: 720px){
+    .tray{ width: 560px; height: 350px; } /* 回到基準尺寸，交給 scale 縮放 */
+  }
 
-
-    @media (max-width: 720px){
-      .tray{ width: 100%; height: 320px; }
-      .food-card{ min-width: 125px; }
-    }
