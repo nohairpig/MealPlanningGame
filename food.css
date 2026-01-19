@@ -1,0 +1,502 @@
+:root{
+      --bg:#ffffff;
+      --panel:#DCE8E1;
+
+      --tab-veg:#7FAF9B;
+      --tab-fruit:#D68C8C;
+      --tab-grain:#C9A46A;
+      --tab-protein:#D89A6A;
+      --tab-dairy:#bab2a0;
+      --tab-fat:#B8B07A;
+
+      --food:#7FAF9B;
+      --food-2:#7FAF9B;
+
+      --tray-border:#cfd6dd;
+      --tray-line:#a9b2bb;
+      --text:#0d2230;
+      --white:#fff;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans TC", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    /* 背景層 */
+    body::before{
+      content:"";
+      position: fixed;
+      inset: 0;
+
+      background-image: url("pic/kitchen.png");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+
+      filter: blur(2px);     /* 微模糊（可調整或刪） */
+      z-index: 0;
+    }
+
+    /* 半透明遮罩 */
+    body::after{
+      content:"";
+      position: fixed;
+      inset: 0;
+
+      background: rgba(255,255,255,0.65); /* 白色霧化 */
+      z-index: 0;
+    }
+
+    .page{
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 22px 18px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== tray area ===== */
+    /* tray + trash layout */
+    .tray-wrap{
+      display:flex;
+      justify-content:center;
+      gap: 14px;
+      align-items: flex-end
+    }
+    
+    .tray-area{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      padding: 12px 0 18px;
+    }
+
+    .tray{
+      width: 560px;
+      height: 350px;
+      border-radius: 18px;
+      border: 10px solid var(--tray-border);
+      background: linear-gradient(#f8fafc,#f0f3f7);
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+      position: relative;
+      padding: 14px;
+      
+    }
+
+    .tray-grid{
+      width:100%;
+      height:100%;
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: 1fr 1.35fr;
+      gap: 12px;
+    }
+
+    /* trash bin */
+    .trash{
+      right: 16px;
+      bottom: 16px;
+
+      width: 110px;
+      height: 110px;
+
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+
+      
+
+      z-index: 10;
+      user-select: none;
+    }
+
+    .trash img{
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    .trash-hint{
+      margin-top: 4px;
+      font-weight: 900;
+      font-size: 11px;
+      opacity: .75;
+      pointer-events: none;
+}
+
+
+    
+
+    /* trash hover state (optional highlight) */
+    .trash.over{
+      background: #fff3b0;
+      border-color: #f6c343;
+      box-shadow: 0 0 0 3px rgba(246,195,67,.35);
+    }
+
+    .compartment{
+      border-radius: 14px;
+      border: 6px solid var(--tray-line);
+      background: #ffffffaa;
+      position:relative;
+      overflow:hidden;
+    }
+    .compartment.large{
+      grid-column: 1 / span 2;
+      border-radius: 16px;
+    }
+
+    /* 拖曳停在格子上 -> 變黃色提示 */
+    .compartment.dropping{
+      background: #fff3b0;              /* 黃色底 */
+      border-color: #f6c343;            /* 黃色邊 */
+      box-shadow: 0 0 0 3px rgba(246,195,67,.35);
+      transition: background .12s ease, box-shadow .12s ease, border-color .12s ease;
+    }
+
+    .slot-head{
+      position:absolute;
+      top:8px;
+      left:10px;
+      right:10px;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:space-between;
+      user-select:none;
+    }
+    .slot-title{
+      font-size: 12px;
+      opacity:.65;
+      font-weight: 800;
+    }
+    .slot-actions{
+      display:flex;
+      gap:6px;
+      align-items:center;
+    }
+    .mini-btn{
+      border: 1px solid rgba(0,0,0,.12);
+      background: rgba(255,255,255,.85);
+      padding: 6px 8px;
+      border-radius: 999px;
+      font-weight: 900;
+      cursor:pointer;
+      font-size: 12px;
+    }
+    .mini-btn:active{ transform: translateY(1px); }
+
+    .slot-body{
+      display: flex;
+      align-items: center;      /* 垂直置中 */
+      justify-content: center;  /* 水平置中 */
+      position:absolute;
+      inset: 10px;
+      overflow:hidden;
+      padding-right: 6px;
+    }
+    .slot-body::-webkit-scrollbar{ width: 10px; }
+    .slot-body::-webkit-scrollbar-thumb{ background: rgba(0,0,0,.15); border-radius: 999px; }
+
+    .empty-hint{
+      display:flex;
+      height:100%;
+      align-items:center;
+      justify-content:center;
+      opacity:.55;
+      font-weight: 700;
+      font-size: 12px;
+      text-align:center;
+    }
+
+    /* 食物卡片圖片 */
+    .food-img {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;
+        margin: 0 auto 6px;
+        display: block;
+    }
+
+    /* 餐盤內小圖片 */
+    .chip-img {
+        width: 28px;
+        height: 28px;
+        object-fit: contain;
+    }
+
+    /* chip 內容排列 */
+    .chip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+
+    /* 格子內容器：可多個食物並排 */
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 12px;
+      padding: 10px;
+      width: 100%;
+      height: 100%;
+      justify-content: center;  /* 每一排水平置中 */
+      align-content: center;    /* 多排時整體垂直置中 */
+      align-items: center;      /* 每個 item 在單排內垂直置中 */
+
+    }
+    /* 每個食材：不要固定 74px，改成用變數控制 */
+    .food-item{
+      width: var(--itemSize);
+      height: var(--itemSize);
+    }
+
+    /* 圖片依容器縮放 */
+    .food-wrap{
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 圖片本身：直接顯示，不加框 */
+    .food-icon{
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display:block;
+      user-select:none;
+      pointer-events:none; /* 避免拖拉到格內圖片時干擾 drop */
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: #e8f2f8;
+      border: 1px solid rgba(28,59,77,.15);
+      font-weight: 900;
+      font-size: 12px;
+      max-width: 100%;
+    }
+
+    /* 右下角數量 */
+    /* 數量與刪除鈕也跟著縮 */
+    .food-qty{
+      position: absolute;
+      right: -6px;
+      bottom: -6px;
+      font-size: calc(var(--itemSize) * 0.18);
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.9);
+      border: 1px solid rgba(0,0,0,.12);
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .food-remove{
+      position:absolute;
+      top: -8px;
+      right: -8px;
+
+      width: calc(var(--itemSize) * 0.32);
+      height: calc(var(--itemSize) * 0.32);
+      border-radius: 999px;
+
+      border: 1px solid rgba(0,0,0,.15);
+      background: rgba(255,255,255,.95);
+      cursor:pointer;
+
+      /* ✅ 讓 × 真正置中 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      font-weight: 900;
+      font-size: calc(var(--itemSize) * 0.22);
+      line-height: 1; /* 可留著，但主要靠 flex 置中 */
+      padding: 0;     /* 避免按鈕預設 padding 影響 */
+
+      min-width: 20px;
+      min-height: 20px;
+    }
+
+    .food-remove:hover{
+      transform: scale(1.05);
+    }
+
+    .chip .x{
+      border:0;
+      background: rgba(0,0,0,.06);
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      cursor:pointer;
+      font-weight: 1000;
+      line-height: 22px;
+    }
+    .chip .x:active{ transform: translateY(1px); }
+
+    /* ===== bottom panel ===== */
+    .panel{
+      background: var(--panel);
+      padding: 14px 16px 18px;
+      border-radius: 10px;
+    }
+
+    .tabs{
+      display:flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      align-items:flex-end;
+      flex-wrap:wrap;
+    }
+    .tab{
+      border:0;
+      color: #2F3A36;
+      padding: 10px 14px;
+      border-radius: 8px 8px 0 0;
+      font-weight: 900;
+      cursor:pointer;
+      opacity:.95;
+      transition: transform .06s ease, opacity .2s ease;
+      white-space:nowrap;
+    }
+    .tab:active{ transform: translateY(1px); }
+    .tab[aria-selected="true"]{
+      opacity: 1;
+      outline: 3px solid rgba(255,255,255,.25);
+      outline-offset: 0;
+    }
+
+    .tab.veg{ background: var(--tab-veg); }
+    .tab.fruit{ background: var(--tab-fruit); }
+    .tab.grain{ background: var(--tab-grain); }
+    .tab.protein{ background: var(--tab-protein); }
+    .tab.dairy{ background: var(--tab-dairy); }
+    .tab.fat{ background: var(--tab-fat); color:#102027; }
+
+    .foods{
+      display:flex;
+      gap: 14px;
+      padding: 10px 10px 6px;
+      overflow-x:auto;
+      scroll-snap-type:x mandatory;
+    }
+    .foods::-webkit-scrollbar{ height: 10px; }
+    .foods::-webkit-scrollbar-thumb{ background: rgba(0,0,0,.15); border-radius: 999px; }
+
+    .food-card{
+      min-width: 135px;
+      height: 92px;
+      background: var(--food);
+      border-radius: 10px;
+      box-shadow: 0 8px 16px rgba(0,0,0,.15);
+      position:relative;
+      cursor:pointer;
+      color:#fff;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      padding: 10px 12px;
+      scroll-snap-align:start;
+      user-select:none;
+      transition: transform .06s ease, background .2s ease;
+    }
+    .food-card:hover{ background: var(--food-2); }
+    .food-card:active{ transform: translateY(1px); }
+    .food-name{ font-weight:1000; font-size: 15px; line-height: 1.1; }
+    .food-sub{ font-size:12px; opacity:.85; margin-top: 6px; }
+
+    .badge{
+      position:absolute;
+      top: 10px;
+      right: 10px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #FFFFFFCC;
+      color: #4A635A;
+      font-weight: 600;
+      font-size: 12px;
+      border: 1px solid rgba(0,0,0,.12);
+    }
+
+    .toolbar{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      justify-content:space-between;
+      margin-top: 10px;
+      flex-wrap:wrap;
+    }
+    .note{
+      color:#083046;
+      font-weight:800;
+      opacity:.95;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .btn{
+      border:0;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 1000;
+      cursor:pointer;
+      background:#ffffff;
+      color:#0b2b3f;
+      box-shadow: 0 8px 16px rgba(0,0,0,.12);
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.secondary{
+      background: #d8b4a0ad;
+      box-shadow:none;
+      border: 1px solid rgba(0,0,0,.12);
+      color:#895757;
+    }
+
+    .status{
+      font-weight: 1000;
+      color:#4A635A;
+      background: #EEF3F0;
+      border: 1px solid rgba(0,0,0,.10);
+      padding: 8px 10px;
+      border-radius: 10px;
+      white-space:nowrap;
+    }
+
+    /* ===== slot picker ===== */
+    .slot-picker{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .slot-pill{
+      border:1px solid rgba(0,0,0,.14);
+      background: rgba(255,255,255,.85);
+      padding: 8px 10px;
+      border-radius: 999px;
+      cursor:pointer;
+      font-weight: 1000;
+      font-size: 12px;
+    }
+    .slot-pill[aria-pressed="true"]{
+      outline: 3px solid rgba(255,255,255,.28);
+      border-color: rgba(0,0,0,.28);
+      background: rgba(255,255,255,.98);
+    }
+
+    
+
+
+    @media (max-width: 720px){
+      .tray{ width: 100%; height: 320px; }
+      .food-card{ min-width: 125px; }
+    }

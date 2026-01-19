@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>餐盤選餐（同格可多樣）</title>
+  <link rel="stylesheet" href="food.css">
+  
+</head>
+<body>
+  <div class="hi">
+    try
+  </div>
+  <div class="page">
+
+    <!-- TRAY + TRASH -->
+    <section class="tray-area">
+      <div class="tray-wrap">
+        <div class="tray" aria-label="餐盤（同格可多樣）">
+          <div class="tray-grid">
+            <div class="compartment" data-slot="0">
+              <div class="slot-body" id="slotBody0"></div>
+            </div>
+
+            <div class="compartment circle" data-slot="1">
+              <div class="slot-body" id="slotBody1"></div>
+            </div>
+
+            <div class="compartment" data-slot="2">
+              <div class="slot-body" id="slotBody2"></div>
+            </div>
+
+            <div class="compartment large" data-slot="3">
+              <div class="slot-body" id="slotBody3"></div>
+            </div>
+
+            <div class="compartment" data-slot="4">
+              <div class="slot-body" id="slotBody4"></div>
+            </div>
+          </div>
+          <!-- Trash bin (drop to delete) -->
+        </div>
+        <div class="trash" id="trash" aria-label="垃圾桶（拖曳到此刪除）">
+          <img id="trashImg" src="pic/bin_close.png" alt="垃圾桶" draggable="false">
+          <div class="trash-hint">拖到這裡刪除</div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- PANEL -->
+    <section class="panel">
+      <!-- slot picker -->
+      <div class="tabs" role="tablist" aria-label="食物類別">
+        <button class="tab veg" role="tab" aria-selected="true" data-tab="veg">蔬菜類</button>
+        <button class="tab fruit" role="tab" aria-selected="false" data-tab="fruit">水果類</button>
+        <button class="tab grain" role="tab" aria-selected="false" data-tab="grain">全榖雜糧類</button>
+        <button class="tab protein" role="tab" aria-selected="false" data-tab="protein">蛋豆魚肉類</button>
+        <button class="tab dairy" role="tab" aria-selected="false" data-tab="dairy">乳品類</button>
+        <button class="tab fat" role="tab" aria-selected="false" data-tab="fat">油脂與堅果類</button>
+      </div>
+
+      <div class="foods" id="foods" aria-label="食物列表"></div>
+
+      <div class="toolbar">
+        <div class="note">
+          操作：
+          將食物直接拖拉至餐盤中即可。<br/>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div class="status" id="status">已選 0 份（共 0 種）</div>
+          <button class="btn secondary" id="clearAll" type="button">清空整個餐盤</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+  // ====== 6類食物（示範資料，可自行增刪）======
+  const FOOD_DATA = {
+    veg: [
+      { id: "broccoli", name: "花椰菜", sub: "高纖", img: "pic/broccoli.png"},
+      { id: "spinach",  name: "菠菜",   sub: "鐵質", img: "pic/spinach.png"},
+      { id: "mushroom", name: "菇類",   sub: "低熱量", img: "pic/mushroom.png"},
+      { id: "tomato",   name: "番茄",   sub: "茄紅素", img: "pic/tomato.png"},
+      { id: "cabbage",  name: "高麗菜", sub: "家常", img: "pic/cabbage.png"},
+    ],
+    fruit: [
+      { id: "banana",   name: "香蕉",   sub: "方便", img: "pic/banana.png"},
+      { id: "apple",    name: "蘋果",   sub: "脆甜", img: "pic/apple.png"},
+      { id: "orange",   name: "橘子",   sub: "維他命C", img: "pic/orange.png"},
+      { id: "kiwi",     name: "奇異果", sub: "酸甜", img: "pic/kiwi.png"},
+      { id: "berries",  name: "莓果",   sub: "多酚", img: "pic/berry.png"},
+    ],
+    grain: [
+      { id: "brownrice", name: "糙米飯", sub: "全穀", img: "pic/brownrice.png"},
+      { id: "sweetpot",  name: "地瓜",   sub: "根莖", img: "pic/sweetpot.png"},
+      { id: "oats",      name: "燕麥",   sub: "飽足", img: "pic/oats.png"},
+      { id: "corn",      name: "玉米",   sub: "香甜", img: "pic/corn.png"},
+      { id: "noodle",    name: "全麥麵", sub: "替代", img: "pic/noodle.png"},
+    ],
+    protein: [
+      { id: "egg",     name: "水煮蛋", sub: "便利", img: "pic/egg.png"},
+      { id: "tofu",    name: "豆腐",   sub: "植物蛋白", img: "pic/tofu.png"},
+      { id: "chicken", name: "雞胸肉", sub: "高蛋白", img: "pic/chicken.png"},
+      { id: "fish",    name: "鮭魚",   sub: "好油脂", img: "pic/fish.png"},
+      { id: "beans",   name: "毛豆",   sub: "纖維", img: "pic/beans.png"},
+    ],
+    dairy: [
+      { id: "milk",   name: "牛奶",   sub: "鈣", img: "pic/milk.png"},
+      { id: "yogurt", name: "優格",   sub: "益生菌", img: "pic/yogurt.png"},
+      { id: "cheese", name: "起司",   sub: "濃郁", img: "pic/cheese.png"},
+      { id: "soyMilk",name: "無糖豆漿", sub: "替代", img: "pic/soymilk.png"},
+    ],
+    fat: [
+      { id: "nuts",   name: "綜合堅果", sub: "香脆", img: "pic/nuts.png" },
+      { id: "avocado",name: "酪梨",   sub: "好脂肪", img: "pic/avocado.png" },
+      { id: "sesame", name: "芝麻",   sub: "點綴", img: "pic/sesame.png" },
+    ],
+  };
+
+  const MAX_PORTION_PER_FOOD = 3;
+  const SLOT_COUNT = 5;
+
+  // slots[slotIndex] = { foodId: portionCount, ... }
+  const slots = Array.from({length: SLOT_COUNT}, () => ({}));
+
+  // total portions per foodId (跨格加總，仍最多3)
+  const portions = Object.values(FOOD_DATA).flat().reduce((acc, f) => {
+    acc[f.id] = 0;
+    return acc;
+  }, {});
+
+  // quick lookup
+  const FOOD_LOOKUP = Object.values(FOOD_DATA).flat().reduce((acc, f) => {
+    acc[f.id] = f;
+    return acc;
+  }, {});
+
+  // DOM
+  const foodsEl = document.getElementById("foods");
+  const statusEl = document.getElementById("status");
+  const tabButtons = Array.from(document.querySelectorAll(".tab"));
+  const slotBodies = Array.from({length:SLOT_COUNT}, (_,i)=>document.getElementById("slotBody"+i));
+  const compartments = Array.from(document.querySelectorAll(".compartment"));
+  const clearAllBtn = document.getElementById("clearAll");
+  const trashEl = document.getElementById("trash");
+  const trashImg = document.getElementById("trashImg");
+  const BIN_CLOSE = "pic/bin_close.png";
+  const BIN_OPEN  = "pic/bin_open.png";
+
+
+  let activeTab = "veg";
+
+  function totalPortions(){
+    return Object.values(portions).reduce((a,b)=>a+b,0);
+  }
+  function totalKinds(){
+    return Object.values(portions).filter(v=>v>0).length;
+  }
+  function updateStatus(){
+    statusEl.textContent = `已選 ${totalPortions()} 份（共 ${totalKinds()} 種）`;
+  }
+
+  // ===== Drag helpers =====
+  function onFoodDragStart(e){
+    const foodId = e.currentTarget.dataset.foodId;
+    e.dataTransfer.setData("text/plain", foodId);
+    e.dataTransfer.effectAllowed = "copy";
+  }
+  function onSlotDragOver(e){
+    // 必須 preventDefault 才能 drop
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    e.currentTarget.classList.add("dropping");
+  }
+  function onSlotDragLeave(e){
+    e.currentTarget.classList.remove("dropping");
+  }
+  function onSlotDrop(e){
+    e.preventDefault();
+    e.currentTarget.classList.remove("dropping");
+
+    const slotIndex = Number(e.currentTarget.dataset.slot);
+    const foodId = e.dataTransfer.getData("text/plain");
+    if (!foodId) return;
+
+    const fromSlotRaw = e.dataTransfer.getData("from-slot");
+
+    // ✅ 從餐盤內拖曳 -> move（先從原格移除 1，再加入新格 1）
+    if (fromSlotRaw !== ""){
+      const fromSlot = Number(fromSlotRaw);
+      if (fromSlot === slotIndex) return;
+
+      // 先檢查目標格可不可以放（避免移走後放不進去）
+      if (!canAddToSlot(foodId, slotIndex)){
+        return;
+      }
+
+      removeFood(foodId, fromSlot);
+      addFood(foodId, slotIndex);
+      return;
+    }
+
+    // ✅ 從底部食物列拖曳 -> copy/add
+    addFood(foodId, slotIndex);
+  }
+
+
+  // 拖曳「餐盤內」食材：用 move（不是 copy）
+  function onChipDragStart(e){
+    const foodId = e.currentTarget.dataset.foodId;
+    const slotIndex = e.currentTarget.dataset.slot;
+    if (!foodId || slotIndex === undefined) return;
+
+    e.dataTransfer.setData("text/plain", foodId);
+    e.dataTransfer.setData("from-slot", String(slotIndex));
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function openTrash(){
+    trashEl.classList.add("over");
+    trashImg.src = BIN_OPEN;
+  }
+  function closeTrash(){
+    trashEl.classList.remove("over");
+    trashImg.src = BIN_CLOSE;
+  }
+
+  function onTrashDragOver(e){
+    e.preventDefault(); // allow drop
+    e.dataTransfer.dropEffect = "move";
+    openTrash();
+  }
+
+  function onTrashDragLeave(){
+    closeTrash();
+  }
+
+  function onTrashDrop(e){
+    e.preventDefault();
+    closeTrash();
+
+    const foodId = e.dataTransfer.getData("text/plain");
+    const fromSlot = e.dataTransfer.getData("from-slot");
+
+    // 只能刪除「從餐盤內拖出來」的（有 from-slot）
+    if (!foodId || fromSlot === "") return;
+
+    removeFood(foodId, Number(fromSlot)); // 刪 1 份
+  }
+
+
+  function renderFoods(){
+    foodsEl.innerHTML = "";
+
+    FOOD_DATA[activeTab].forEach(item => {
+      const card = document.createElement("div");
+      card.className = "food-card";
+      card.dataset.foodId = item.id;
+      card.setAttribute("draggable", "true");
+
+      const p = portions[item.id] ?? 0;
+
+      card.innerHTML = `
+        <img src="${item.img}" alt="${item.name}" class="food-img">
+        <div class="food-name">${item.name}</div>
+        <div class="badge">${p} / ${MAX_PORTION_PER_FOOD}</div>
+      `;
+
+      card.addEventListener("dragstart", onFoodDragStart);
+
+      foodsEl.appendChild(card);
+    });
+  }
+
+  function applyAutoItemSize(){
+    for (let i = 0; i < SLOT_COUNT; i++){
+      const body = slotBodies[i];
+      if (!body) continue;
+
+      const w = body.clientWidth;
+      const h = body.clientHeight;
+
+      // 基礎大小：一般格
+      let size = Math.floor(Math.min(w, h) * 0.40);
+      let minSize = 44;
+      let maxSize = 82;
+
+      // 格 4（data-slot="3"）獨立放大（更大的倍率與上限）
+      if (i === 3){
+        size = Math.floor(Math.min(w, h) * 0.55);
+        minSize = 70;
+        maxSize = 120;
+      }
+
+      size = Math.max(minSize, Math.min(size, maxSize));
+      body.style.setProperty("--itemSize", size + "px");
+    }
+  }
+
+
+  function renderSlots(){
+    for (let i=0;i<SLOT_COUNT;i++){
+      const slotObj = slots[i];
+      const entries = Object.entries(slotObj).filter(([,cnt]) => cnt > 0);
+
+      const chips = document.createElement("div");
+      chips.className = "chips";
+
+      entries.forEach(([foodId, cnt]) => {
+        const food = FOOD_LOOKUP[foodId];
+        const chip = document.createElement("div");
+        chip.className = "food-item";
+        chip.dataset.foodId = foodId;
+        chip.dataset.slot = String(i);
+        chip.setAttribute("draggable", "true");
+        chip.addEventListener("dragstart", onChipDragStart);
+
+        chip.innerHTML = `
+          <div class="food-wrap" title="${food.name}">
+            <img src="${food.img}" alt="${food.name}" class="food-icon" draggable="false">
+            <div class="food-qty">× ${cnt}</div>
+          </div>
+        `;
+
+
+        // chip.querySelector(".food-remove").addEventListener("click", (e) => {
+        //   e.stopPropagation();
+        //   removeFood(foodId, i);
+        // });
+
+        
+        chips.appendChild(chip);
+      });
+
+      slotBodies[i].innerHTML = "";
+      slotBodies[i].appendChild(chips);
+      applyAutoItemSize();
+
+    }
+
+    // refresh food badges
+    Array.from(document.querySelectorAll(".food-card")).forEach(card => {
+      const id = card.dataset.foodId;
+      const badge = card.querySelector(".badge");
+      if (badge) badge.textContent = `${portions[id] ?? 0} / ${MAX_PORTION_PER_FOOD}`;
+    });
+
+    updateStatus();
+  }
+
+  function canAddToSlot(foodId, slotIndex){
+    if ((portions[foodId] ?? 0) >= MAX_PORTION_PER_FOOD){
+      alert("此食物已達 3 份上限（全盤加總）。");
+      return false;
+    }
+
+    const slotObj = slots[slotIndex];
+    const distinctKindsInSlot = Object.keys(slotObj).filter(k => (slotObj[k] ?? 0) > 0).length;
+    const alreadyInSlot = (slotObj[foodId] ?? 0) > 0;
+
+    const maxKinds = (slotIndex === 3) ? 3 : 2;
+
+    if (!alreadyInSlot && distinctKindsInSlot >= maxKinds){
+      alert(`此格最多只能放 ${maxKinds} 種不同食材。`);
+      return false;
+    }
+    return true;
+  }
+
+
+  function addFood(foodId, slotIndex){
+    if ((portions[foodId] ?? 0) >= MAX_PORTION_PER_FOOD){
+      alert("此食物已達 3 份上限（全盤加總）。");
+      return;
+    }
+
+    const slotObj = slots[slotIndex];
+
+    const distinctKindsInSlot = Object.keys(slotObj).filter(k => (slotObj[k] ?? 0) > 0).length;
+    const alreadyInSlot = (slotObj[foodId] ?? 0) > 0;
+
+    // ✅ 格子種類上限：格4(索引3) = 3，其餘 = 2
+    const maxKinds = (slotIndex === 3) ? 3 : 2;
+
+    if (!alreadyInSlot && distinctKindsInSlot >= maxKinds){
+      alert(`此格最多只能放 ${maxKinds} 種不同食材。`);
+      return;
+    }
+
+    slotObj[foodId] = (slotObj[foodId] ?? 0) + 1;
+    portions[foodId] = (portions[foodId] ?? 0) + 1;
+
+    renderSlots();
+  }
+
+
+  function removeFood(foodId, slotIndex){
+    const slotObj = slots[slotIndex];
+    if (!slotObj[foodId]) return;
+
+    slotObj[foodId] -= 1;
+    if (slotObj[foodId] <= 0) delete slotObj[foodId];
+
+    portions[foodId] = Math.max(0, (portions[foodId] ?? 0) - 1);
+
+    renderSlots();
+  }
+
+  function clearAll(){
+    for (let i=0;i<SLOT_COUNT;i++) slots[i] = {};
+    Object.keys(portions).forEach(k => portions[k] = 0);
+    renderSlots();
+  }
+
+  // tabs
+  tabButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeTab = btn.dataset.tab;
+      tabButtons.forEach(b => b.setAttribute("aria-selected", String(b === btn)));
+      renderFoods();
+      renderSlots();
+    });
+  });
+
+  // slots: enable drop
+  compartments.forEach(comp => {
+    comp.addEventListener("dragover", onSlotDragOver);
+    comp.addEventListener("dragleave", onSlotDragLeave);
+    comp.addEventListener("drop", onSlotDrop);
+  });
+  trashEl.addEventListener("dragover", onTrashDragOver);
+  trashEl.addEventListener("dragleave", onTrashDragLeave);
+  trashEl.addEventListener("drop", onTrashDrop);
+
+
+  clearAllBtn.addEventListener("click", clearAll);
+
+  // init
+  renderFoods();
+  renderSlots();
+
+  window.addEventListener("resize", () => {
+  applyAutoItemSize();
+});
+
+</script>
+
+</body>
+</html>
